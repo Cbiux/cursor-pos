@@ -2,6 +2,11 @@ import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
 import type { ReceiptData } from "./types";
 
+export interface ReceiptEncoderOptions {
+  language?: string;
+  codepageMapping?: string;
+}
+
 function columnsForWidth(paperWidth: ReceiptData["paperWidth"]): number {
   return paperWidth === 58 ? 32 : 48;
 }
@@ -15,12 +20,16 @@ function formatTimestamp(date = new Date()): string {
   return `${day}/${month} ${hours}:${minutes}`;
 }
 
-export function buildReceiptBuffer(data: ReceiptData): Uint8Array {
+export function buildReceiptBuffer(
+  data: ReceiptData,
+  encoderOptions?: ReceiptEncoderOptions,
+): Uint8Array {
   const width = columnsForWidth(data.paperWidth);
   const timestamp = formatTimestamp();
 
   const encoder = new ReceiptPrinterEncoder({
-    language: "esc-pos",
+    language: encoderOptions?.language ?? "esc-pos",
+    codepageMapping: encoderOptions?.codepageMapping,
     width,
   });
 

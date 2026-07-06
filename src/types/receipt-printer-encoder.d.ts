@@ -8,6 +8,7 @@ declare module "@point-of-sale/receipt-printer-encoder" {
   interface EncoderOptions {
     language?: string;
     width?: number;
+    codepageMapping?: string;
   }
 
   export default class ReceiptPrinterEncoder {
