@@ -94,7 +94,7 @@ export function PosApp() {
     try {
       const buffer = await buildReceiptBuffer(receipt, {
         language: device?.language ?? "esc-pos",
-        codepageMapping: device?.codepageMapping || undefined,
+        codepageMapping: device?.codepageMapping ?? "pos-5890",
       });
 
       await print(buffer);
@@ -110,7 +110,7 @@ export function PosApp() {
     try {
       const buffer = await buildReceiptBuffer(receipt, {
         language: device?.language ?? "esc-pos",
-        codepageMapping: device?.codepageMapping || undefined,
+        codepageMapping: device?.codepageMapping ?? "pos-5890",
       });
 
       downloadReceiptBuffer(buffer);

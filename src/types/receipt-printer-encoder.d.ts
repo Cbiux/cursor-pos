@@ -14,13 +14,14 @@ declare module "@point-of-sale/receipt-printer-encoder" {
   export default class ReceiptPrinterEncoder {
     constructor(options?: EncoderOptions);
     initialize(): this;
+    codepage(codepage: string): this;
     align(alignment: "left" | "center" | "right"): this;
     bold(enabled?: boolean): this;
     line(text: string): this;
     text(text: string): this;
     newline(count?: number): this;
     image(
-      input: HTMLImageElement,
+      input: HTMLImageElement | HTMLCanvasElement,
       width: number,
       height: number,
       algorithm?: string,

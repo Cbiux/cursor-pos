@@ -170,7 +170,7 @@ export class BrowserReceiptPrinter {
       vendorId: info.usbVendorId ?? null,
       productId: info.usbProductId ?? null,
       language: "esc-pos",
-      codepageMapping: null,
+      codepageMapping: "pos-5890",
       baudRate: options.baudRate,
       label: buildLabel({
         transport: "serial",
@@ -274,7 +274,7 @@ export class BrowserReceiptPrinter {
       manufacturerName: device.manufacturerName,
       productName: device.productName,
       language: "esc-pos",
-      codepageMapping: "epson",
+      codepageMapping: "pos-5890",
       label: buildLabel({
         transport: "usb",
         manufacturerName: device.manufacturerName,

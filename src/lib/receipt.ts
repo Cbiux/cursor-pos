@@ -1,12 +1,14 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
-import { getLogoPrintSize, loadLogoImage } from "./logo-image";
+import { getLogoPrintSize, loadLogoCanvas } from "./logo-image";
 import type { ReceiptData } from "./types";
 
 export interface ReceiptEncoderOptions {
   language?: string;
   codepageMapping?: string;
 }
+
+const DEFAULT_CODEPAGE_MAPPING = "pos-5890";
 
 function columnsForWidth(paperWidth: ReceiptData["paperWidth"]): number {
   return paperWidth === 58 ? 32 : 48;
@@ -22,20 +24,11 @@ function formatTimestamp(date = new Date()): string {
 }
 
 function createEncoder(encoderOptions?: ReceiptEncoderOptions, width?: number) {
-  const encoderConfig: {
-    language: string;
-    width: number;
-    codepageMapping?: string;
-  } = {
+  return new ReceiptPrinterEncoder({
     language: encoderOptions?.language ?? "esc-pos",
     width: width ?? 32,
-  };
-
-  if (encoderOptions?.codepageMapping) {
-    encoderConfig.codepageMapping = encoderOptions.codepageMapping;
-  }
-
-  return new ReceiptPrinterEncoder(encoderConfig);
+    codepageMapping: encoderOptions?.codepageMapping ?? DEFAULT_CODEPAGE_MAPPING,
+  });
 }
 
 async function appendLogo(
@@ -47,9 +40,12 @@ async function appendLogo(
   }
 
   try {
-    const logo = await loadLogoImage();
+    const logo = await loadLogoCanvas(paperWidth);
     const size = getLogoPrintSize(paperWidth);
-    encoder.align("center").image(logo, size.width, size.height, "floydsteinberg").newline();
+    encoder
+      .align("center")
+      .image(logo, size.width, size.height, "threshold", 160)
+      .newline();
   } catch {
     // Si el logo no carga, continuar sin bloquear la impresión.
   }
@@ -63,7 +59,7 @@ export async function buildReceiptBuffer(
   const timestamp = formatTimestamp();
   const encoder = createEncoder(encoderOptions, width);
 
-  encoder.initialize().align("center");
+  encoder.initialize().codepage("windows1252").align("center");
   await appendLogo(encoder, data.paperWidth);
 
   encoder.bold(true).line(data.businessName).bold(false);
