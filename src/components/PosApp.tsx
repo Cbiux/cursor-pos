@@ -6,20 +6,23 @@ import {
   LoaderCircle,
   PlugZap,
   Printer,
+  Save,
   Unplug,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ReceiptPreview } from "@/components/ReceiptPreview";
 import { useBrowserPrinter } from "@/hooks/useBrowserPrinter";
 import { downloadReceiptBuffer } from "@/lib/browser-printer";
+import { loadReceiptDefaults, saveReceiptDefaults } from "@/lib/receipt-defaults";
 import { buildReceiptBuffer } from "@/lib/receipt";
-import { defaultReceiptData, type PaperWidth, type ReceiptData } from "@/lib/types";
+import { type PaperWidth, defaultReceiptData, type ReceiptData } from "@/lib/types";
 
 type FieldKey = keyof ReceiptData;
 
 const textFields: Array<{ key: FieldKey; label: string; placeholder: string }> = [
   { key: "businessName", label: "Nombre del negocio", placeholder: "Cafe Cursor - Santiago" },
+  { key: "nombre", label: "Nombre", placeholder: "Nombre del asistente" },
   { key: "qrContent", label: "Contenido del QR", placeholder: "https://..." },
   { key: "eventType", label: "Tipo de evento", placeholder: "Drop-by slot" },
   { key: "actionLabel", label: "Acción", placeholder: "Check-in" },
@@ -44,8 +47,17 @@ export function PosApp() {
     print,
   } = useBrowserPrinter();
 
+  useEffect(() => {
+    setReceipt(loadReceiptDefaults());
+  }, []);
+
   function updateField<K extends FieldKey>(key: K, value: ReceiptData[K]) {
     setReceipt((current) => ({ ...current, [key]: value }));
+  }
+
+  function handleSaveDefaults() {
+    saveReceiptDefaults(receipt);
+    setStatus("Valores guardados como predeterminados.");
   }
 
   async function handleConnect(transport: "serial" | "usb") {
@@ -80,7 +92,7 @@ export function PosApp() {
     setStatus(null);
 
     try {
-      const buffer = buildReceiptBuffer(receipt, {
+      const buffer = await buildReceiptBuffer(receipt, {
         language: device?.language ?? "esc-pos",
         codepageMapping: device?.codepageMapping || undefined,
       });
@@ -94,14 +106,18 @@ export function PosApp() {
     }
   }
 
-  function handleDownload() {
-    const buffer = buildReceiptBuffer(receipt, {
-      language: device?.language ?? "esc-pos",
-      codepageMapping: device?.codepageMapping || undefined,
-    });
+  async function handleDownload() {
+    try {
+      const buffer = await buildReceiptBuffer(receipt, {
+        language: device?.language ?? "esc-pos",
+        codepageMapping: device?.codepageMapping || undefined,
+      });
 
-    downloadReceiptBuffer(buffer);
-    setStatus("Archivo ESC/POS descargado.");
+      downloadReceiptBuffer(buffer);
+      setStatus("Archivo ESC/POS descargado.");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Error al descargar.");
+    }
   }
 
   const browserReady = support.secureContext && (support.serial || support.usb);
@@ -116,26 +132,6 @@ export function PosApp() {
           </h1>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             Conecta tu impresora térmica desde el navegador y imprime directo, también en Vercel.
-          </p>
-        </div>
-
-        <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950">
-          <p className="font-medium">
-            {support.isWindows ? "En Windows usa Conectar Serial" : "Impresión desde el navegador"}
-          </p>
-          <p className="mt-1">
-            {support.isWindows ? (
-              <>
-                El botón USB no funciona en Windows porque el driver bloquea la impresora. Pulsa{" "}
-                <strong>Conectar Serial</strong> y elige el puerto COM de tu impresora en el
-                diálogo de Chrome.
-              </>
-            ) : (
-              <>
-                Usa Chrome o Edge. Prueba <strong>Conectar Serial</strong> o{" "}
-                <strong>Conectar USB</strong> según tu impresora.
-              </>
-            )}
           </p>
         </div>
 
@@ -293,7 +289,7 @@ export function PosApp() {
           </button>
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={() => void handleDownload()}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50"
           >
             <Download className="h-4 w-4" />
@@ -301,24 +297,24 @@ export function PosApp() {
           </button>
         </div>
 
+        <button
+          type="button"
+          onClick={handleSaveDefaults}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-800 transition hover:bg-zinc-100"
+        >
+          <Save className="h-4 w-4" />
+          Guardar defaults
+        </button>
+
         {status ? (
           <p className="mt-4 rounded-xl bg-zinc-100 px-4 py-3 text-sm text-zinc-700">{status}</p>
         ) : null}
 
         <p className="mt-4 text-xs leading-5 text-zinc-500">
-          {support.isWindows ? (
-            <>
-              Si Serial no muestra puertos: abre el Administrador de dispositivos y busca un puerto
-              COM. Si no existe, instala el driver de la impresora y activa &quot;USB Serial Port&quot;
-              o &quot;Virtual COM&quot; en las propiedades del driver. Prueba 115200 baud si 9600 no
-              imprime.
-            </>
-          ) : (
-            <>
-              Si no aparece la impresora, habilita el puerto virtual COM en el driver o prueba otra
-              velocidad serial.
-            </>
-          )}
+          MTP-2 por Bluetooth: Conectar Serial y elige <strong>MTP-2: vinculado</strong>. Por cable
+          USB necesitas un puerto COM de cable (CH340), no los COM de Bluetooth (COM10–COM13).
+          Velocidad recomendada: 9600 baud. El logo se imprime en blanco y negro optimizado para
+          papel térmico.
         </p>
       </section>
 

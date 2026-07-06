@@ -30,7 +30,7 @@ export function useBrowserPrinter(): UseBrowserPrinterResult {
   const [device, setDevice] = useState<StoredPrinterDevice | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [baudRate, setBaudRate] = useState(115200);
+  const [baudRate, setBaudRate] = useState(9600);
 
   const printerRef = useRef<BrowserReceiptPrinter | null>(null);
 
@@ -120,7 +120,7 @@ export function useBrowserPrinter(): UseBrowserPrinterResult {
       return;
     }
 
-    setBaudRate(stored.baudRate ?? 115200);
+    setBaudRate(stored.baudRate ?? 9600);
 
     void (async () => {
       try {
@@ -130,7 +130,7 @@ export function useBrowserPrinter(): UseBrowserPrinterResult {
         bindPrinter(printer);
 
         if (stored.transport === "serial") {
-          await printer.reconnectSerial(stored, { baudRate: stored.baudRate ?? 115200 });
+          await printer.reconnectSerial(stored, { baudRate: stored.baudRate ?? 9600 });
         } else if (!support.isWindows) {
           await printer.reconnectUsb(stored);
         } else {
