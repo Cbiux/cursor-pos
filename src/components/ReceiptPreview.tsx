@@ -4,6 +4,7 @@ import Image from "next/image";
 import QRCode from "react-qr-code";
 
 import { LOGO_SRC, getLogoPreviewSize } from "@/lib/logo-image";
+import { getQrPreviewSize } from "@/lib/qr-image";
 import type { ReceiptData } from "@/lib/types";
 
 function formatTimestamp(date = new Date()): string {
@@ -43,7 +44,7 @@ export function ReceiptPreview({ data }: ReceiptPreviewProps) {
           <p className="mb-4 text-xs font-semibold">{data.businessName}</p>
 
           <div className="mb-4 rounded bg-white p-2">
-            <QRCode value={data.qrContent || " "} size={data.paperWidth === 58 ? 132 : 176} />
+            <QRCode value={data.qrContent || " "} size={getQrPreviewSize(data.paperWidth)} />
           </div>
 
           <p>{data.eventType}</p>

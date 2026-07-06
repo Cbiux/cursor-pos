@@ -5,8 +5,12 @@ function toEscPosSize(size: number): number {
 }
 
 export function getQrPrintSize(paperWidth: 58 | 80): { width: number; height: number } {
-  const size = toEscPosSize(paperWidth === 58 ? 160 : 224);
+  const size = toEscPosSize(paperWidth === 58 ? 192 : 272);
   return { width: size, height: size };
+}
+
+export function getQrPreviewSize(paperWidth: 58 | 80): number {
+  return paperWidth === 58 ? 156 : 208;
 }
 
 export async function loadQrCanvas(
