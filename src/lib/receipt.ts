@@ -27,11 +27,20 @@ export function buildReceiptBuffer(
   const width = columnsForWidth(data.paperWidth);
   const timestamp = formatTimestamp();
 
-  const encoder = new ReceiptPrinterEncoder({
+  const encoderConfig: {
+    language: string;
+    width: number;
+    codepageMapping?: string;
+  } = {
     language: encoderOptions?.language ?? "esc-pos",
-    codepageMapping: encoderOptions?.codepageMapping,
     width,
-  });
+  };
+
+  if (encoderOptions?.codepageMapping) {
+    encoderConfig.codepageMapping = encoderOptions.codepageMapping;
+  }
+
+  const encoder = new ReceiptPrinterEncoder(encoderConfig);
 
   encoder.initialize().align("center").bold(true).line(data.businessName).bold(false);
 
