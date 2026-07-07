@@ -17,6 +17,27 @@ export type Translations = {
     compatibilityBody: string;
     connectTitle: string;
     connectSteps: string[];
+    modesTitle: string;
+    modesIntro: string;
+    modes: string[];
+    eventTicketTitle: string;
+    eventTicketBody: string;
+    eventTicketSteps: string[];
+    lumaTitle: string;
+    lumaBody: string;
+    lumaSteps: string[];
+    lumaBadgeTitle: string;
+    lumaBadgeSteps: string[];
+    lumaNote: string;
+    creditsTitle: string;
+    creditsBody: string;
+    creditsSteps: string[];
+    creditsCsvTitle: string;
+    creditsCsvHint: string;
+    creditsCsvColumns: string[];
+    lumaSetupTitle: string;
+    lumaSetupSteps: string[];
+    lumaSetupNote: string;
     featuresTitle: string;
     features: string[];
     requirementsTitle: string;
@@ -263,14 +284,79 @@ export const translations: Record<Locale, Translations> = {
         "Deja la velocidad en 9600 baud e imprime una prueba.",
         "En Windows, USB directo suele no funcionar en el navegador; prioriza Bluetooth + Serial.",
       ],
+      modesTitle: "Modos de ticket",
+      modesIntro:
+        "Cursor POS tiene cuatro modos. Cada uno tiene vista previa en vivo y respeta el ancho de papel (58 mm o 80 mm).",
+      modes: [
+        "Ticket de evento: campos editables, secciones activables y valores predeterminados guardables.",
+        "Ticket con foto: camara o subida, encuadre, cuenta regresiva y logo Cursor.",
+        "Check-in Luma: escaneo de QR, confirmacion antes de imprimir gafete y registro en vivo.",
+        "Cursor Credits: cola de links desde CSV; cada impresion avanza al siguiente QR.",
+      ],
+      eventTicketTitle: "Ticket de evento",
+      eventTicketBody:
+        "Personaliza el ticket y activa solo las secciones que necesitas. La vista previa se actualiza al instante.",
+      eventTicketSteps: [
+        "Completa nombre del negocio, QR, tipo de evento, accion, nombre, extra y WiFi.",
+        "Usa Secciones del ticket para mostrar u ocultar logo, QR, tipo de evento, accion, nombre y extra.",
+        "Activa Incluir WiFi solo si quieres la red y clave en el ticket impreso.",
+        "Pulsa Guardar defaults para recordar los valores en este navegador.",
+        "Imprime o descarga el archivo ESC/POS como respaldo.",
+      ],
+      lumaTitle: "Check-in Luma",
+      lumaBody:
+        "Imprime gafetes al escanear invitados. La app obtiene datos del invitado desde Luma, pero no marca check-in en Luma (su API publica ya no lo permite). Usa el escaner oficial de Luma para asistencia.",
+      lumaSteps: [
+        "Conecta tu calendario Luma (API key en el navegador o LUMA_API_KEY en el servidor).",
+        "Selecciona el evento e inicia el escaneo con la camara.",
+        "Al escanear un QR valido suena un beep y aparece el panel Invitado listo.",
+        "Revisa la vista previa del gafete y pulsa Imprimir gafete o Descartar.",
+        "El registro en vivo guarda los ultimos escaneos con opcion de reimprimir.",
+      ],
+      lumaBadgeTitle: "Configuracion del gafete",
+      lumaBadgeSteps: [
+        "QR del ticket de evento: usa el Contenido del QR del modo Ticket de evento (recomendado para links custom).",
+        "URL de check-in del invitado: usa la URL original del QR escaneado de Luma.",
+        "Activa o desactiva logo, QR, accion, tipo de entrada y fecha en Secciones del ticket.",
+        "La accion y el contenido del QR se pueden editar antes de imprimir.",
+      ],
+      lumaNote:
+        "El QR impreso por defecto NO es el check-in de Luma del invitado, sino el link que configures en Ticket de evento, salvo que elijas URL de check-in del invitado.",
+      creditsTitle: "Cursor Credits",
+      creditsBody:
+        "Reparte tickets con links unicos para reclamar creditos. Cada fila del CSV es un ticket; al imprimir, la cola avanza sola al siguiente link.",
+      creditsSteps: [
+        "Abre el modo Cursor Credits y carga un CSV con columnas de nombre y URL.",
+        "Opcional: edita titulo, subtitulo y secciones del ticket (logo, QR, etiqueta, etc.).",
+        "Pulsa Imprimir siguiente: el QR del ticket es el link de la fila actual.",
+        "Tras imprimir, la cola avanza. Usa Reiniciar cola o Vaciar cola si hace falta.",
+        "El progreso y la cola se guardan en localStorage de este navegador.",
+      ],
+      creditsCsvTitle: "Formato del CSV",
+      creditsCsvHint:
+        "El parser detecta columnas url, link, claim o credit para el link, y name, label, email o guest para la etiqueta. Tambien acepta ; como separador.",
+      creditsCsvColumns: [
+        "Encabezados sugeridos: name, url",
+        "Ejemplo: Ana Garcia, https://cursor.com/redeem/abc123",
+        "Hay un CSV de prueba en examples/cursor-credits-test.csv del repositorio.",
+      ],
+      lumaSetupTitle: "Conectar Luma",
+      lumaSetupSteps: [
+        "Opcion A — Pega tu API key en la app (sessionStorage, solo esta pestana).",
+        "Opcion B — Fork del repo, deploy en Vercel y variable LUMA_API_KEY en el servidor (recomendado para produccion).",
+        "Requiere Luma Plus. Ticket, foto y credits funcionan sin Luma.",
+      ],
+      lumaSetupNote:
+        "En un deploy compartido, la API key transita por el servidor en cada request si usas la opcion A.",
       featuresTitle: "Funciones de la app",
       features: [
-        "Ticket de evento: logo Cursor, QR, nombre, texto extra, WiFi y fecha con segundos.",
-        "Ticket con foto: camara o subida de imagen, cuenta regresiva 3-2-1, retomar foto y vista previa.",
-        "Vista previa grande antes de imprimir.",
-        "Impresion directa desde el navegador (Web Serial) sin instalar software.",
-        "Descarga del archivo ESC/POS como respaldo.",
-        "Guardar valores predeterminados del ticket de evento.",
+        "Cuatro modos: ticket de evento, foto, check-in Luma y Cursor Credits.",
+        "Vista previa grande en vivo con toggles de seccion por modo.",
+        "Ticket de evento: logo, QR, WiFi, timestamp y defaults guardables.",
+        "Luma: escaneo con confirmacion, gafete configurable y registro con reimpresion.",
+        "Credits: cola secuencial desde CSV con QR = link de reclamo.",
+        "Impresion directa Web Serial y descarga ESC/POS como respaldo.",
+        "Interfaz en espanol e ingles y tema claro/oscuro.",
       ],
       requirementsTitle: "Requisitos",
       requirements: [
@@ -543,14 +629,79 @@ export const translations: Record<Locale, Translations> = {
         "Keep speed at 9600 baud and print a test ticket.",
         "On Windows, direct USB usually does not work in the browser; prefer Bluetooth + Serial.",
       ],
+      modesTitle: "Ticket modes",
+      modesIntro:
+        "Cursor POS has four modes. Each includes a live preview and supports 58 mm or 80 mm paper.",
+      modes: [
+        "Event ticket: editable fields, toggleable sections, and savable defaults.",
+        "Photo ticket: camera or upload, framing, countdown, and Cursor logo.",
+        "Luma check-in: QR scanning, confirm-before-print badges, and a live session log.",
+        "Cursor Credits: link queue from CSV; each print advances to the next QR.",
+      ],
+      eventTicketTitle: "Event ticket",
+      eventTicketBody:
+        "Customize the ticket and enable only the sections you need. The preview updates instantly.",
+      eventTicketSteps: [
+        "Fill in business name, QR, event type, action, name, extra, and WiFi.",
+        "Use Ticket sections to show or hide logo, QR, event type, action, name, and extra.",
+        "Enable Include WiFi only when you want network and password on the printed ticket.",
+        "Click Save defaults to remember values in this browser.",
+        "Print or download the ESC/POS file as backup.",
+      ],
+      lumaTitle: "Luma check-in",
+      lumaBody:
+        "Print badges when scanning guests. The app loads guest data from Luma but does not mark check-in in Luma (the public API no longer supports it). Use Luma's official scanner for attendance.",
+      lumaSteps: [
+        "Connect your Luma calendar (browser API key or LUMA_API_KEY on the server).",
+        "Select the event and start scanning with the camera.",
+        "On a valid QR scan you hear a beep and the Guest ready panel appears.",
+        "Review the badge preview and click Print badge or Discard.",
+        "The live log keeps recent scans with a reprint option.",
+      ],
+      lumaBadgeTitle: "Badge settings",
+      lumaBadgeSteps: [
+        "Event ticket QR: uses QR content from Event ticket mode (recommended for custom links).",
+        "Guest check-in URL: uses the original Luma URL from the scanned QR.",
+        "Toggle logo, QR, action, ticket type, and timestamp under Ticket sections.",
+        "Action label and QR content can be edited before printing.",
+      ],
+      lumaNote:
+        "By default the printed QR is NOT the guest's Luma check-in URL—it uses the Event ticket QR unless you choose Guest check-in URL.",
+      creditsTitle: "Cursor Credits",
+      creditsBody:
+        "Hand out tickets with unique claim links. Each CSV row is one ticket; printing automatically advances the queue to the next link.",
+      creditsSteps: [
+        "Open Cursor Credits mode and upload a CSV with name and URL columns.",
+        "Optional: edit title, subtitle, and ticket sections (logo, QR, label, etc.).",
+        "Click Print next: the ticket QR is the current row's link.",
+        "After printing, the queue advances. Use Reset queue or Clear queue if needed.",
+        "Progress and queue state persist in this browser's localStorage.",
+      ],
+      creditsCsvTitle: "CSV format",
+      creditsCsvHint:
+        "The parser looks for url, link, claim, or credit columns for the link, and name, label, email, or guest for the label. Semicolon separators are also supported.",
+      creditsCsvColumns: [
+        "Suggested headers: name, url",
+        "Example: Ana Garcia, https://cursor.com/redeem/abc123",
+        "A sample file lives at examples/cursor-credits-test.csv in the repo.",
+      ],
+      lumaSetupTitle: "Connect Luma",
+      lumaSetupSteps: [
+        "Option A — Paste your API key in the app (sessionStorage, this tab only).",
+        "Option B — Fork the repo, deploy to Vercel, and set LUMA_API_KEY on the server (recommended for production).",
+        "Requires Luma Plus. Event ticket, photo, and credits work without Luma.",
+      ],
+      lumaSetupNote:
+        "On a shared deployment, the API key still passes through the server on each request if you use Option A.",
       featuresTitle: "App features",
       features: [
-        "Event ticket: Cursor logo, QR, name, extra line, WiFi, and timestamp with seconds.",
-        "Photo ticket: camera or upload, 3-2-1 countdown, retake, and live preview.",
-        "Large preview before printing.",
-        "Direct browser printing (Web Serial) with no extra software.",
-        "ESC/POS file download as backup.",
-        "Save default values for the event ticket.",
+        "Four modes: event ticket, photo, Luma check-in, and Cursor Credits.",
+        "Large live preview with per-mode section toggles.",
+        "Event ticket: logo, QR, WiFi, timestamp, and savable defaults.",
+        "Luma: scan with confirmation, configurable badge, and reprint log.",
+        "Credits: sequential CSV queue with QR = claim link.",
+        "Direct Web Serial printing and ESC/POS download backup.",
+        "Spanish and English UI with light/dark theme.",
       ],
       requirementsTitle: "Requirements",
       requirements: [

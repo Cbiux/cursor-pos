@@ -85,7 +85,7 @@ export function PosApp() {
     setCreditsPreview(data);
   }, []);
 
-  const handleLumaPreviewChange = useCallback((data: LumaReceiptData | null) => {
+  const handleLumaPreviewChange = useCallback((data: LumaReceiptData) => {
     setLumaPreviewReceipt(data);
   }, []);
 
@@ -120,6 +120,13 @@ export function PosApp() {
       showTimestamp: saved.showTimestamp,
     }));
   }, []);
+
+  useEffect(() => {
+    setStatus(null);
+    if (mode !== "luma") {
+      setLumaPreviewReceipt(null);
+    }
+  }, [mode]);
 
   function updateField<K extends FieldKey>(key: K, value: ReceiptData[K]) {
     setReceipt((current) => ({ ...current, [key]: value }));
@@ -565,6 +572,8 @@ export function PosApp() {
             paperWidth={receipt.paperWidth}
             showTimestamp={receipt.showTimestamp}
             defaultQrContent={receipt.qrContent}
+            defaultEventName={receipt.businessName}
+            defaultGuestName={receipt.nombre}
             onPaperWidthChange={(value) => updateField("paperWidth", value)}
             onShowTimestampChange={(value) => updateField("showTimestamp", value)}
             printBuffer={print}

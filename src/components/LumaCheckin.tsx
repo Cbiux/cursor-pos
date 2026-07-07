@@ -11,7 +11,7 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildLumaReceiptBuffer } from "@/lib/luma-receipt";
 import { lumaApiFetch } from "@/lib/luma/browser-api";
@@ -43,11 +43,13 @@ interface LumaCheckinProps {
   paperWidth: PaperWidth;
   showTimestamp: boolean;
   defaultQrContent: string;
+  defaultEventName: string;
+  defaultGuestName: string;
   onPaperWidthChange: (value: PaperWidth) => void;
   onShowTimestampChange: (value: boolean) => void;
   printBuffer: (buffer: Uint8Array) => Promise<void>;
   onStatus: (message: string | null) => void;
-  onPreviewReceiptChange: (data: LumaReceiptData | null) => void;
+  onPreviewReceiptChange: (data: LumaReceiptData) => void;
   encoderOptions: ReceiptEncoderOptions;
 }
 
@@ -119,6 +121,8 @@ export function LumaCheckin({
   onStatus,
   onPreviewReceiptChange,
   defaultQrContent,
+  defaultEventName,
+  defaultGuestName,
   encoderOptions,
 }: LumaCheckinProps) {
   const { t, locale } = useLocale();
@@ -266,26 +270,47 @@ export function LumaCheckin({
     saveLumaPrintSettings(printSettings);
   }, [printSettings]);
 
-  useEffect(() => {
-    if (pendingScan) {
-      onPreviewReceiptChange(buildReceiptData(pendingScan.guest));
-    }
-  }, [pendingScan, printSettings, paperWidth, defaultQrContent, onPreviewReceiptChange]);
+  const buildPreviewReceiptData = useCallback(
+    (guest?: LumaGuestSummary): LumaReceiptData => {
+      const subject = guest ?? pendingScan?.guest;
 
-  function buildReceiptData(guest: LumaGuestSummary): LumaReceiptData {
-    return {
-      eventName: guest.eventName,
-      guestName: guest.name,
-      ticketName: guest.ticketName,
-      qrContent: resolveLumaQrContent(printSettings, guest.checkinUrl, defaultQrContent),
-      actionLabel: printSettings.actionLabel,
+      return {
+        eventName: subject?.eventName ?? selectedEvent?.name ?? defaultEventName,
+        guestName: subject?.name ?? defaultGuestName,
+        ticketName: subject?.ticketName ?? null,
+        qrContent: resolveLumaQrContent(
+          printSettings,
+          subject?.checkinUrl ?? "",
+          defaultQrContent,
+        ),
+        actionLabel: printSettings.actionLabel,
+        paperWidth,
+        showLogo: printSettings.showLogo,
+        showQr: printSettings.showQr,
+        showActionLabel: printSettings.showActionLabel,
+        showTicketName: printSettings.showTicketName,
+        showTimestamp: printSettings.showTimestamp,
+      };
+    },
+    [
+      pendingScan,
+      printSettings,
       paperWidth,
-      showLogo: printSettings.showLogo,
-      showQr: printSettings.showQr,
-      showActionLabel: printSettings.showActionLabel,
-      showTicketName: printSettings.showTicketName,
-      showTimestamp: printSettings.showTimestamp,
-    };
+      defaultQrContent,
+      defaultEventName,
+      defaultGuestName,
+      selectedEvent,
+    ],
+  );
+
+  useEffect(() => {
+    onPreviewReceiptChange(buildPreviewReceiptData());
+  }, [buildPreviewReceiptData, onPreviewReceiptChange]);
+
+  async function buildAndPrintGuest(guest: LumaGuestSummary) {
+    const receiptData = buildPreviewReceiptData(guest);
+    const buffer = await buildLumaReceiptBuffer(receiptData, encoderOptions);
+    await printBuffer(buffer);
   }
 
   function updatePrintSettings<K extends keyof LumaPrintSettings>(
@@ -293,12 +318,6 @@ export function LumaCheckin({
     value: LumaPrintSettings[K],
   ) {
     setPrintSettings((current) => ({ ...current, [key]: value }));
-  }
-
-  async function buildAndPrintGuest(guest: LumaGuestSummary) {
-    const receiptData = buildReceiptData(guest);
-    const buffer = await buildLumaReceiptBuffer(receiptData, encoderOptions);
-    await printBuffer(buffer);
   }
 
   function appendLogEntry(entry: LumaCheckinEntry) {
@@ -367,7 +386,6 @@ export function LumaCheckin({
 
       const guest = payload.guest;
       playScanBeep();
-      onPreviewReceiptChange(buildReceiptData(guest));
       setPendingScan({
         guest,
         entryId: `${dedupeKey}:${now}`,
@@ -384,7 +402,6 @@ export function LumaCheckin({
 
   function discardPendingScan() {
     setPendingScan(null);
-    onPreviewReceiptChange(null);
     onStatus(null);
   }
 
@@ -417,12 +434,11 @@ export function LumaCheckin({
         scannedAt: new Date().toISOString(),
         printed,
         error: entryError,
-        qrContent: buildReceiptData(guest).qrContent,
+        qrContent: buildPreviewReceiptData(guest).qrContent,
         eventName: guest.eventName,
       });
 
       setPendingScan(null);
-      onPreviewReceiptChange(null);
       onStatus(t.luma.scannedPrinted);
     } catch (printError) {
       onStatus(printError instanceof Error ? printError.message : t.luma.printError);
@@ -541,7 +557,6 @@ export function LumaCheckin({
   function handleCalendarDisconnected() {
     stopScanning();
     setPendingScan(null);
-    onPreviewReceiptChange(null);
     setAuthRefreshKey((current) => current + 1);
   }
 

@@ -6,7 +6,7 @@
 
 <p align="center">
   Browser-based thermal ticket printing for Cursor events.<br />
-  QR check-in, WiFi details, photo tickets, and live preview. No desktop app required.
+  Event tickets, photo wall, Luma badges, Cursor Credits, and live preview. No desktop app required.
 </p>
 
 <p align="center">
@@ -21,40 +21,57 @@
 
 ## What is Cursor POS?
 
-**Cursor POS** is a web app to print **58 mm thermal tickets** directly from **Chrome or Edge** using **Web Serial**. Built for meetups, check-in desks, and event handouts where you need receipts with QR codes, names, WiFi info, or attendee photos.
+**Cursor POS** is a web app to print **58 mm thermal tickets** directly from **Chrome or Edge** using **Web Serial**. Built for meetups, check-in desks, credit handouts, and event photo walls.
 
 Printing runs **in the browser on each machine**. The Vercel deployment serves the UI; your printer connects locally via Bluetooth Serial.
+
+## Ticket modes
+
+| Mode | Use case |
+| --- | --- |
+| **Event ticket** | Custom receipts with QR, WiFi, name, and toggleable sections |
+| **Photo ticket** | Camera capture or upload for a post-event photo wall |
+| **Luma check-in** | Scan guest QRs, confirm, and print badges |
+| **Cursor Credits** | Print claim-link tickets from a CSV queue |
 
 ## Features
 
 ### Event ticket
-- Cursor logo on every receipt
-- Custom QR code (Luma, check-in links, etc.)
-- Business name, event type, action label
+- Cursor logo, custom QR, business name, event type, action label
 - Attendee name and optional extra line
 - WiFi network and password block
-- Full timestamp with seconds
+- **Section toggles** — show/hide logo, QR, event type, action, name, extra, WiFi, timestamp
+- Live preview updates as you edit
 - Save default field values in the browser
 
 ### Photo ticket
 - Capture from camera or upload an image
 - 3, 2, 1 countdown before capture
-- Review, retake, or confirm before printing
+- Review, retake, drag-to-frame, and confirm before printing
 - Switch between front/back cameras when available
 - Name, extra line, timestamp, and Cursor logo on the ticket
-- Great for building a **photo wall / mural** after the event
 
 ### Luma check-in
 - Scan guest QR codes from the device camera
-- Pull guest details from Luma via a server-side proxy
-- Auto-print a badge with name, ticket type, and check-in QR
-- Mark check-in in Luma and keep a live session log with reprint
+- **Confirm before print** — beep on scan, review guest, then print or discard
+- Load guest details from Luma via API (server proxy or browser key)
+- **Configurable badge QR** — use Event ticket QR content or the guest's Luma check-in URL
+- Toggle logo, QR, action, ticket type, and timestamp on the badge
+- Live session log with reprint
+- **Does not mark check-in in Luma** — the public API no longer supports it; use Luma's official scanner for attendance
+
+### Cursor Credits
+- Upload a **CSV** with claim links (`name`, `url` columns suggested)
+- Each row = one ticket; the **QR is the claim URL**
+- **Print next** advances the queue automatically
+- Reset or clear the queue; progress persists in localStorage
+- Sample file: [`examples/cursor-credits-test.csv`](examples/cursor-credits-test.csv)
 
 ### General
-- Large live preview (58 mm and 80 mm paper)
+- Four ticket modes with large live preview (58 mm and 80 mm paper)
 - Direct print over Web Serial (ESC/POS)
 - Download raw ESC/POS file as backup
-- English and Spanish UI
+- English and Spanish UI, light/dark theme
 - Full setup guide at [/docs](https://cursor-pos.vercel.app/docs)
 
 ## Recommended printer
@@ -69,7 +86,7 @@ Tested with **GOOJPRT PT-210** (portable, Bluetooth, 58 mm thermal paper).
 | Protocol | ESC/POS |
 | Recommended baud | **9600** |
 
-It should also work with other **58 mm Bluetooth thermal printers** that expose a **Serial (COM) port** and support ESC/POS, including many portable models similar to MTP-2.
+It should also work with other **58 mm Bluetooth thermal printers** that expose a **Serial (COM) port** and support ESC/POS.
 
 ## Quick start (printing)
 
@@ -77,9 +94,19 @@ It should also work with other **58 mm Bluetooth thermal printers** that expose 
 2. Open [cursor-pos.vercel.app](https://cursor-pos.vercel.app) in **Chrome** or **Edge** (HTTPS required).
 3. Click **Connect Serial** and select the paired printer port.
 4. Set baud rate to **9600**.
-5. Fill in the ticket fields and click **Print ticket** or **Print photo**.
+5. Pick a ticket mode, fill in fields, and print.
 
 See the full guide: [cursor-pos.vercel.app/docs](https://cursor-pos.vercel.app/docs)
+
+## Cursor Credits CSV format
+
+```csv
+name,url
+Ana Garcia,https://cursor.com/redeem/example-001
+Carlos Mora,https://cursor.com/redeem/example-002
+```
+
+The parser also accepts columns named `link`, `claim`, `label`, `email`, or `guest`, and `;` as separator.
 
 ## Requirements
 
@@ -119,9 +146,9 @@ There are two ways to use **Luma check-in**:
 3. Set `LUMA_API_KEY` in **Project Settings → Environment Variables**
 4. Use your own URL. The key stays on your server only; staff never paste keys in the browser
 
-Requires **Luma Plus**. Ticket and photo modes work without any Luma configuration.
+Requires **Luma Plus**. Event ticket, photo, and Cursor Credits work without any Luma configuration.
 
-> **Note:** Port `3000` is often used by other local apps (e.g. OfferHub). This project uses **3001** by default to avoid conflicts.
+> **Note:** Port `3000` is often used by other local apps. This project uses **3001** by default.
 
 ### Scripts
 
@@ -146,11 +173,13 @@ Requires **Luma Plus**. Ticket and photo modes work without any Luma configurati
 ```
 src/
   app/              Next.js routes (/, /docs, API)
-  components/       UI (PosApp, camera, previews)
+  components/       UI (PosApp, LumaCheckin, CursorCredits, previews)
   hooks/            Browser printer hook
-  lib/              Receipt builders, images, i18n
+  lib/              Receipt builders, Luma client, credits CSV, i18n
+examples/
+  cursor-credits-test.csv   Sample CSV for Cursor Credits mode
 public/
-  CUBE_2D_LIGHT.svg Official Cursor logo asset
+  CUBE_2D_LIGHT.svg         Official Cursor logo asset
 ```
 
 ## Deploy
