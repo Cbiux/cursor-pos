@@ -12,6 +12,7 @@ export interface LumaGuestTicket {
 
 export interface LumaGuestSummary {
   guestId: string;
+  scanKey: string;
   name: string;
   email: string;
   ticketName: string | null;

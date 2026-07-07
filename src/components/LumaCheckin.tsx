@@ -2,12 +2,14 @@
 
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
 import {
+  CheckCircle2,
   LoaderCircle,
   Printer,
   QrCode,
   RefreshCw,
   ScanLine,
   Square,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -15,6 +17,7 @@ import { buildLumaReceiptBuffer } from "@/lib/luma-receipt";
 import { lumaApiFetch } from "@/lib/luma/browser-api";
 import { parseLumaCheckinUrl } from "@/lib/luma/parse-checkin-url";
 import { hasSessionLumaApiKey } from "@/lib/luma/storage";
+import { playScanBeep } from "@/lib/scan-beep";
 import {
   LUMA_CHECKIN_LOG_KEY,
   LUMA_SCAN_DEDUPE_MS,
@@ -46,6 +49,12 @@ interface CameraDevice {
 }
 
 type LumaAuthMode = "loading" | "required" | "session" | "server";
+
+interface PendingScan {
+  guest: LumaGuestSummary;
+  entryId: string;
+  dedupeKey: string;
+}
 
 function loadStoredEventId(): string {
   if (typeof window === "undefined") {
@@ -123,6 +132,8 @@ export function LumaCheckin({
   const [authMode, setAuthMode] = useState<LumaAuthMode>("loading");
   const [authRefreshKey, setAuthRefreshKey] = useState(0);
   const [serverConfigured, setServerConfigured] = useState(false);
+  const [pendingScan, setPendingScan] = useState<PendingScan | null>(null);
+  const [isConfirming, setIsConfirming] = useState(false);
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -260,11 +271,15 @@ export function LumaCheckin({
       body: JSON.stringify({
         eventId: guest.eventId,
         guestId: guest.guestId,
+        scanKey: guest.scanKey,
       }),
     });
 
     const payload = (await response.json()) as { ok?: boolean; error?: string };
     if (!response.ok) {
+      if (response.status === 501) {
+        throw new Error(payload.error ?? t.luma.checkInApiUnavailable);
+      }
       throw new Error(payload.error ?? t.luma.checkinError);
     }
 
@@ -280,7 +295,10 @@ export function LumaCheckin({
   }
 
   async function processScan(rawValue: string) {
-    if (processingRef.current) {
+    if (processingRef.current || pendingScan) {
+      if (pendingScan) {
+        onStatus(t.luma.discardPendingFirst);
+      }
       return;
     }
 
@@ -311,17 +329,7 @@ export function LumaCheckin({
     onStatus(null);
     setError(null);
 
-    const entryId = `${dedupeKey}:${now}`;
-    let guest: LumaGuestSummary | null = null;
-    let printed = false;
-    let checkedIn = false;
-    let entryError: string | null = null;
-
     try {
-      if (!isConnected) {
-        throw new Error(t.luma.printerRequired);
-      }
-
       const params = new URLSearchParams({
         event_id: parsed.eventId,
         pk: parsed.pk,
@@ -342,9 +350,48 @@ export function LumaCheckin({
         throw new Error(payload.error ?? t.luma.guestLoadError);
       }
 
-      guest = payload.guest;
+      const guest = payload.guest;
+      playScanBeep();
       onPreviewGuestChange(guest);
+      setPendingScan({
+        guest,
+        entryId: `${dedupeKey}:${now}`,
+        dedupeKey,
+      });
+      onStatus(t.luma.scannedReady);
+    } catch (scanError) {
+      onStatus(scanError instanceof Error ? scanError.message : t.luma.scanProcessError);
+    } finally {
+      processingRef.current = false;
+      setIsProcessing(false);
+    }
+  }
 
+  function discardPendingScan() {
+    setPendingScan(null);
+    onPreviewGuestChange(null);
+    onStatus(null);
+  }
+
+  async function confirmPendingScan() {
+    if (!pendingScan || isConfirming) {
+      return;
+    }
+
+    if (!isConnected) {
+      onStatus(t.luma.printerRequired);
+      return;
+    }
+
+    const { guest, entryId } = pendingScan;
+    setIsConfirming(true);
+    onStatus(null);
+
+    let printed = false;
+    let checkedIn = guest.checkedIn;
+    let entryError: string | null = null;
+
+    try {
       await buildAndPrintGuest(guest);
       printed = true;
 
@@ -355,44 +402,39 @@ export function LumaCheckin({
           checkinError instanceof Error ? checkinError.message : t.luma.checkinError;
       }
 
+      appendLogEntry({
+        id: entryId,
+        guestId: guest.guestId,
+        name: guest.name,
+        ticketName: guest.ticketName,
+        scannedAt: new Date().toISOString(),
+        printed,
+        checkedIn,
+        error: entryError,
+        checkinUrl: guest.checkinUrl,
+        eventName: guest.eventName,
+      });
+
+      setPendingScan(null);
+      onPreviewGuestChange(null);
+
       onStatus(
         entryError
           ? t.luma.printedCheckinFailed
-          : checkedIn || guest.checkedIn
+          : checkedIn
             ? t.luma.scannedSuccess
             : t.luma.scannedPrinted,
       );
-    } catch (scanError) {
-      entryError =
-        scanError instanceof Error ? scanError.message : t.luma.scanProcessError;
-      onStatus(entryError);
+    } catch (printError) {
+      onStatus(printError instanceof Error ? printError.message : t.luma.printError);
     } finally {
-      appendLogEntry({
-        id: entryId,
-        guestId: guest?.guestId ?? parsed.pk,
-        name: guest?.name ?? parsed.pk,
-        ticketName: guest?.ticketName ?? null,
-        scannedAt: new Date().toISOString(),
-        printed,
-        checkedIn: checkedIn || Boolean(guest?.checkedIn),
-        error: entryError,
-        checkinUrl: guest?.checkinUrl ?? parsed.checkinUrl,
-        eventName: guest?.eventName ?? selectedEvent?.name ?? parsed.eventId,
-      });
-
-      processingRef.current = false;
-      setIsProcessing(false);
+      setIsConfirming(false);
     }
   }
 
   async function startScanning() {
     if (!selectedEventId) {
       setError(t.luma.selectEventFirst);
-      return;
-    }
-
-    if (!isConnected) {
-      setError(t.luma.printerRequired);
       return;
     }
 
@@ -465,6 +507,7 @@ export function LumaCheckin({
     try {
       await buildAndPrintGuest({
         guestId: entry.guestId,
+        scanKey: entry.guestId,
         name: entry.name,
         email: "",
         ticketName: entry.ticketName,
@@ -498,6 +541,7 @@ export function LumaCheckin({
 
   function handleCalendarDisconnected() {
     stopScanning();
+    setPendingScan(null);
     onPreviewGuestChange(null);
     setAuthRefreshKey((current) => current + 1);
   }
@@ -598,13 +642,29 @@ export function LumaCheckin({
               {t.luma.scannerTitle}
             </p>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-              {isScanning ? t.luma.scannerActiveHint : t.luma.scannerIdleHint}
+              {pendingScan
+                ? t.luma.scannerPausedHint
+                : isScanning
+                  ? isProcessing
+                    ? t.luma.processing
+                    : t.luma.scannerActiveHint
+                  : t.luma.scannerIdleHint}
             </p>
           </div>
           {isProcessing ? (
             <span className="inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
               {t.luma.processing}
+            </span>
+          ) : pendingScan ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {t.luma.confirmTitle}
+            </span>
+          ) : isScanning ? (
+            <span className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-1 text-xs font-medium text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+              <ScanLine className="h-3.5 w-3.5 animate-pulse" />
+              {t.luma.scannerWaitingHint}
             </span>
           ) : null}
         </div>
@@ -641,7 +701,34 @@ export function LumaCheckin({
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-950/70 px-6 text-center text-sm text-zinc-200">
               {t.luma.scannerStoppedHint}
             </div>
-          ) : null}
+          ) : (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6">
+              <div
+                className={`relative aspect-square w-[min(72vw,18rem)] rounded-2xl border-2 ${
+                  pendingScan
+                    ? "border-amber-300/80"
+                    : isProcessing
+                      ? "border-amber-300/80"
+                      : "border-emerald-300/90"
+                }`}
+              >
+                <span className="absolute left-0 top-0 h-8 w-8 rounded-tl-2xl border-l-4 border-t-4 border-white/90" />
+                <span className="absolute right-0 top-0 h-8 w-8 rounded-tr-2xl border-r-4 border-t-4 border-white/90" />
+                <span className="absolute bottom-0 left-0 h-8 w-8 rounded-bl-2xl border-b-4 border-l-4 border-white/90" />
+                <span className="absolute bottom-0 right-0 h-8 w-8 rounded-br-2xl border-b-4 border-r-4 border-white/90" />
+                {!pendingScan && !isProcessing ? (
+                  <span className="absolute inset-x-4 top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-emerald-300/90" />
+                ) : null}
+              </div>
+              <p className="mt-4 max-w-xs text-center text-sm font-medium text-white drop-shadow">
+                {pendingScan
+                  ? t.luma.scannerPausedHint
+                  : isProcessing
+                    ? t.luma.processing
+                    : t.luma.scannerWaitingHint}
+              </p>
+            </div>
+          )}
         </div>
 
         {error ? <p className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p> : null}
@@ -669,6 +756,76 @@ export function LumaCheckin({
           )}
         </div>
       </div>
+
+      {pendingScan ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/40">
+          <div className="mb-4">
+            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+              {t.luma.confirmTitle}
+            </p>
+            <p className="text-sm text-emerald-800/80 dark:text-emerald-200/80">
+              {t.luma.confirmHint}
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-emerald-200/80 bg-white px-4 py-4 dark:border-emerald-900 dark:bg-zinc-900">
+            <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+              {pendingScan.guest.name}
+            </p>
+            {pendingScan.guest.email ? (
+              <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                {pendingScan.guest.email}
+              </p>
+            ) : null}
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {pendingScan.guest.ticketName ? (
+                <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                  {pendingScan.guest.ticketName}
+                </span>
+              ) : null}
+              <span className="rounded-full bg-zinc-100 px-2.5 py-1 font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+                {t.luma.approvalLabel}: {pendingScan.guest.approvalStatus}
+              </span>
+              {pendingScan.guest.checkedIn ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 font-medium text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200">
+                  {t.luma.alreadyCheckedIn}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => void confirmPendingScan()}
+              disabled={!isConnected || isConfirming}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-zinc-900 px-4 py-3 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isConfirming ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="h-4 w-4" />
+              )}
+              {t.luma.confirmPrint}
+            </button>
+            <button
+              type="button"
+              onClick={discardPendingScan}
+              disabled={isConfirming}
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-zinc-800 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              <X className="h-4 w-4" />
+              {t.luma.confirmDiscard}
+            </button>
+          </div>
+
+          {!isConnected ? (
+            <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
+              {t.luma.printerRequired}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -702,7 +859,11 @@ export function LumaCheckin({
                     {entry.ticketName ? ` · ${entry.ticketName}` : ""}
                   </p>
                   <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-                    {entry.printed ? t.luma.statusPrinted : t.luma.statusPrintFailed}
+                    {entry.printed
+                      ? t.luma.statusPrinted
+                      : entry.error
+                        ? t.luma.statusPrintFailed
+                        : t.luma.statusAwaitingPrint}
                     {" · "}
                     {entry.checkedIn ? t.luma.statusCheckedIn : t.luma.statusCheckinPending}
                     {entry.error ? ` · ${entry.error}` : ""}

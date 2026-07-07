@@ -135,6 +135,8 @@ export type Translations = {
     scannerTitle: string;
     scannerIdleHint: string;
     scannerActiveHint: string;
+    scannerWaitingHint: string;
+    scannerPausedHint: string;
     scannerStoppedHint: string;
     startScan: string;
     stopScan: string;
@@ -143,6 +145,7 @@ export type Translations = {
     eventMismatch: string;
     guestLoadError: string;
     checkinError: string;
+    checkInApiUnavailable: string;
     scanProcessError: string;
     scannerStartError: string;
     scannedSuccess: string;
@@ -159,6 +162,15 @@ export type Translations = {
     statusPrintFailed: string;
     statusCheckedIn: string;
     statusCheckinPending: string;
+    statusAwaitingPrint: string;
+    confirmTitle: string;
+    confirmHint: string;
+    confirmPrint: string;
+    confirmDiscard: string;
+    scannedReady: string;
+    discardPendingFirst: string;
+    alreadyCheckedIn: string;
+    approvalLabel: string;
     previewAction: string;
     previewGuestPlaceholder: string;
     previewEventPlaceholder: string;
@@ -345,16 +357,19 @@ export const translations: Record<Locale, Translations> = {
     },
     luma: {
       title: "Check-in con Luma",
-      subtitle: "Escanea el QR del invitado, imprime su gafete y marca el check-in en Luma.",
+      subtitle:
+        "Escanea el QR, revisa los datos del invitado y confirma antes de imprimir el gafete.",
       eventLabel: "Evento",
       loadingEvents: "Cargando eventos...",
       noEvents: "No hay eventos disponibles",
       eventsLoadError: "No se pudieron cargar los eventos de Luma.",
       selectEventFirst: "Selecciona un evento antes de escanear.",
-      printerRequired: "Conecta la impresora antes de escanear.",
+      printerRequired: "Conecta la impresora antes de imprimir.",
       scannerTitle: "Escaneo de QR",
       scannerIdleHint: "Activa la camara para recibir invitados.",
       scannerActiveHint: "Apunta al QR de Luma del invitado.",
+      scannerWaitingHint: "Esperando escaneo...",
+      scannerPausedHint: "Confirma o descarta al invitado actual para seguir escaneando.",
       scannerStoppedHint: "La camara se activa al iniciar el escaneo.",
       startScan: "Iniciar escaneo",
       stopScan: "Detener escaneo",
@@ -363,6 +378,8 @@ export const translations: Record<Locale, Translations> = {
       eventMismatch: "El QR pertenece a otro evento distinto al seleccionado.",
       guestLoadError: "No se pudo obtener la informacion del invitado.",
       checkinError: "No se pudo marcar el check-in en Luma.",
+      checkInApiUnavailable:
+        "Luma ya no expone check-in en su API publica. Imprime el gafete aqui y marca asistencia con el escaner oficial de Luma.",
       scanProcessError: "No se pudo procesar el escaneo.",
       scannerStartError: "No se pudo iniciar la camara para escanear.",
       scannedSuccess: "Gafete impreso y check-in registrado.",
@@ -379,6 +396,15 @@ export const translations: Record<Locale, Translations> = {
       statusPrintFailed: "Sin imprimir",
       statusCheckedIn: "Check-in ok",
       statusCheckinPending: "Check-in pendiente",
+      statusAwaitingPrint: "Pendiente de imprimir",
+      confirmTitle: "Invitado listo",
+      confirmHint: "Revisa la vista previa del gafete y confirma la impresion.",
+      confirmPrint: "Imprimir gafete",
+      confirmDiscard: "Descartar",
+      scannedReady: "QR capturado. Revisa los datos e imprime cuando estes listo.",
+      discardPendingFirst: "Descarta o imprime al invitado actual antes de escanear otro QR.",
+      alreadyCheckedIn: "Ya tenia check-in en Luma.",
+      approvalLabel: "Estado",
       previewAction: "Check-in",
       previewGuestPlaceholder: "Nombre del invitado",
       previewEventPlaceholder: "Nombre del evento",
@@ -569,16 +595,18 @@ export const translations: Record<Locale, Translations> = {
     },
     luma: {
       title: "Luma check-in",
-      subtitle: "Scan each guest QR, print their badge, and mark check-in in Luma.",
+      subtitle: "Scan the QR, review guest details, and confirm before printing the badge.",
       eventLabel: "Event",
       loadingEvents: "Loading events...",
       noEvents: "No events available",
       eventsLoadError: "Could not load Luma events.",
       selectEventFirst: "Select an event before scanning.",
-      printerRequired: "Connect the printer before scanning.",
+      printerRequired: "Connect the printer before printing.",
       scannerTitle: "QR scanner",
       scannerIdleHint: "Start the camera to receive guests.",
       scannerActiveHint: "Point at the guest Luma QR code.",
+      scannerWaitingHint: "Waiting for scan...",
+      scannerPausedHint: "Confirm or discard the current guest to keep scanning.",
       scannerStoppedHint: "The camera starts when scanning begins.",
       startScan: "Start scanning",
       stopScan: "Stop scanning",
@@ -587,6 +615,8 @@ export const translations: Record<Locale, Translations> = {
       eventMismatch: "That QR belongs to a different event than the one selected.",
       guestLoadError: "Could not load guest information.",
       checkinError: "Could not mark check-in in Luma.",
+      checkInApiUnavailable:
+        "Luma no longer exposes check-in on its public API. Print the badge here and mark attendance with Luma's official scanner.",
       scanProcessError: "Could not process the scan.",
       scannerStartError: "Could not start the camera for scanning.",
       scannedSuccess: "Badge printed and check-in recorded.",
@@ -603,6 +633,15 @@ export const translations: Record<Locale, Translations> = {
       statusPrintFailed: "Not printed",
       statusCheckedIn: "Checked in",
       statusCheckinPending: "Check-in pending",
+      statusAwaitingPrint: "Awaiting print",
+      confirmTitle: "Guest ready",
+      confirmHint: "Review the badge preview and confirm printing.",
+      confirmPrint: "Print badge",
+      confirmDiscard: "Discard",
+      scannedReady: "QR captured. Review the details and print when ready.",
+      discardPendingFirst: "Discard or print the current guest before scanning another QR.",
+      alreadyCheckedIn: "Already checked in on Luma.",
+      approvalLabel: "Status",
       previewAction: "Check-in",
       previewGuestPlaceholder: "Guest name",
       previewEventPlaceholder: "Event name",

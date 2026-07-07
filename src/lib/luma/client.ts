@@ -162,6 +162,7 @@ export async function getGuestByKey(
 
   return {
     guestId,
+    scanKey: pk,
     name: buildGuestName(guest),
     email: guest.user_email?.trim() ?? "",
     ticketName: pickTicketName(tickets),
@@ -173,30 +174,69 @@ export async function getGuestByKey(
   };
 }
 
+function parseLumaErrorMessage(errorText: string): string {
+  const trimmed = errorText.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as { message?: string };
+    return parsed.message?.trim() ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
+export class LumaCheckInUnavailableError extends Error {
+  constructor() {
+    super(
+      "Luma's public API no longer exposes a check-in endpoint. Use the Luma app scanner to mark attendance.",
+    );
+    this.name = "LumaCheckInUnavailableError";
+  }
+}
+
 export async function checkInGuest(
   apiKey: string,
   eventId: string,
-  guestIdentifier: string,
+  scanKey: string,
+  guestId?: string,
 ): Promise<void> {
-  const attempts: Array<{ baseUrl: string; path: string; body: Record<string, string> }> = [
-    {
-      baseUrl: LUMA_API_BASE,
-      path: "/v1/event/check-in-guest",
-      body: { api_id: guestIdentifier, event_api_id: eventId },
-    },
-    {
-      baseUrl: LUMA_API_BASE,
-      path: "/v1/event/check-in-guest",
-      body: { api_id: guestIdentifier },
-    },
-    {
-      baseUrl: LUMA_LEGACY_API_BASE,
-      path: "/event/check-in-guest",
-      body: { api_id: guestIdentifier },
-    },
-  ];
+  const identifiers = [scanKey.trim(), guestId?.trim()].filter(
+    (value, index, values): value is string =>
+      Boolean(value) && values.indexOf(value) === index,
+  );
+
+  const attempts: Array<{ baseUrl: string; path: string; body: Record<string, string> }> = [];
+
+  for (const identifier of identifiers) {
+    attempts.push(
+      {
+        baseUrl: LUMA_LEGACY_API_BASE,
+        path: "/event/check-in-guest",
+        body: { api_id: identifier, event_api_id: eventId },
+      },
+      {
+        baseUrl: LUMA_LEGACY_API_BASE,
+        path: "/event/check-in-guest",
+        body: { api_id: identifier },
+      },
+      {
+        baseUrl: LUMA_API_BASE,
+        path: "/v1/event/check-in-guest",
+        body: { api_id: identifier, event_api_id: eventId },
+      },
+      {
+        baseUrl: LUMA_API_BASE,
+        path: "/v1/event/check-in-guest",
+        body: { id: identifier, event_id: eventId },
+      },
+    );
+  }
 
   let lastError: Error | null = null;
+  let sawNotFound = false;
 
   for (const attempt of attempts) {
     try {
@@ -211,8 +251,19 @@ export async function checkInGuest(
       );
       return;
     } catch (error) {
-      lastError = error instanceof Error ? error : new Error("Could not check in guest.");
+      const message =
+        error instanceof Error ? parseLumaErrorMessage(error.message) : "Could not check in guest.";
+
+      if (message.toLowerCase().includes("not found")) {
+        sawNotFound = true;
+      }
+
+      lastError = new Error(message || "Could not check in guest.");
     }
+  }
+
+  if (sawNotFound) {
+    throw new LumaCheckInUnavailableError();
   }
 
   throw lastError ?? new Error("Could not check in guest.");
