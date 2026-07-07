@@ -3,7 +3,7 @@ import { DEFAULT_PHOTO_FRAME_OFFSET } from "./photo-image";
 
 export type PaperWidth = 58 | 80;
 
-export type TicketMode = "event" | "photo" | "luma";
+export type TicketMode = "event" | "photo" | "luma" | "credits";
 
 export interface ReceiptData {
   businessName: string;
@@ -15,6 +15,12 @@ export interface ReceiptData {
   wifiSsid: string;
   wifiPassword: string;
   paperWidth: PaperWidth;
+  showLogo: boolean;
+  showQr: boolean;
+  showEventType: boolean;
+  showActionLabel: boolean;
+  showNombre: boolean;
+  showExtra: boolean;
   showWifi: boolean;
   showTimestamp: boolean;
 }
@@ -29,6 +35,25 @@ export interface PhotoTicketData {
   showTimestamp: boolean;
 }
 
+export interface CreditEntry {
+  id: string;
+  label: string;
+  claimUrl: string;
+}
+
+export interface CreditsTicketData {
+  title: string;
+  subtitle: string;
+  entries: CreditEntry[];
+  currentIndex: number;
+  paperWidth: PaperWidth;
+  showLogo: boolean;
+  showQr: boolean;
+  showLabel: boolean;
+  showSubtitle: boolean;
+  showTimestamp: boolean;
+}
+
 export const defaultReceiptData: ReceiptData = {
   businessName: "Cursor Meetup - San José",
   nombre: "Juan Santamaría",
@@ -39,6 +64,12 @@ export const defaultReceiptData: ReceiptData = {
   wifiSsid: "Taller.1",
   wifiPassword: "@Salvo20",
   paperWidth: 58,
+  showLogo: true,
+  showQr: true,
+  showEventType: true,
+  showActionLabel: true,
+  showNombre: true,
+  showExtra: true,
   showWifi: true,
   showTimestamp: true,
 };
@@ -52,6 +83,21 @@ export const defaultPhotoTicketData: PhotoTicketData = {
   photoDataUrl: null,
   showTimestamp: true,
 };
+
+export const defaultCreditsTicketData: CreditsTicketData = {
+  title: "Cursor Credits",
+  subtitle: "",
+  entries: [],
+  currentIndex: 0,
+  paperWidth: 58,
+  showLogo: true,
+  showQr: true,
+  showLabel: true,
+  showSubtitle: false,
+  showTimestamp: true,
+};
+
+export const CREDITS_STATE_KEY = "cursor-pos-credits-state";
 
 export function getPreviewWidthClass(paperWidth: PaperWidth): string {
   return paperWidth === 58 ? "w-[400px]" : "w-[520px]";

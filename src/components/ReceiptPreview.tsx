@@ -25,24 +25,28 @@ export function ReceiptPreview({ data }: ReceiptPreviewProps) {
       </p>
       <div className={shellClass}>
         <div className="flex flex-col items-center text-center">
-          <Image
-            src={LOGO_SRC}
-            alt="Logo Cursor"
-            width={logoSize.width}
-            height={logoSize.height}
-            className="mb-5"
-            priority
-          />
+          {data.showLogo ? (
+            <Image
+              src={LOGO_SRC}
+              alt="Logo Cursor"
+              width={logoSize.width}
+              height={logoSize.height}
+              className="mb-5"
+              priority
+            />
+          ) : null}
           <p className="mb-5 text-base font-semibold">{data.businessName}</p>
 
-          <div className="mb-5 rounded bg-white p-2">
-            <QRCode value={data.qrContent || " "} size={getQrPreviewSize(data.paperWidth)} />
-          </div>
+          {data.showQr ? (
+            <div className="mb-5 rounded bg-white p-2">
+              <QRCode value={data.qrContent || " "} size={getQrPreviewSize(data.paperWidth)} />
+            </div>
+          ) : null}
 
-          <p>{data.eventType}</p>
-          <p>{data.actionLabel}</p>
-          {data.nombre.trim() ? <p>{data.nombre.trim()}</p> : null}
-          {data.extra.trim() ? <p>{data.extra.trim()}</p> : null}
+          {data.showEventType ? <p>{data.eventType}</p> : null}
+          {data.showActionLabel ? <p>{data.actionLabel}</p> : null}
+          {data.showNombre && data.nombre.trim() ? <p>{data.nombre.trim()}</p> : null}
+          {data.showExtra && data.extra.trim() ? <p>{data.extra.trim()}</p> : null}
           {data.showTimestamp ? <p className="mb-4">{formatTicketTimestamp()}</p> : null}
 
           {data.showWifi ? (

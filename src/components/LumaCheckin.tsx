@@ -25,7 +25,14 @@ import {
   type LumaCalendarEvent,
   type LumaCheckinEntry,
   type LumaGuestSummary,
+  type LumaReceiptData,
 } from "@/lib/luma/types";
+import {
+  loadLumaPrintSettings,
+  resolveLumaQrContent,
+  saveLumaPrintSettings,
+  type LumaPrintSettings,
+} from "@/lib/luma/print-settings";
 import { useLocale } from "@/lib/i18n/locale-context";
 import { ConnectLuma } from "@/components/ConnectLuma";
 import type { ReceiptEncoderOptions } from "@/lib/receipt";
@@ -35,11 +42,12 @@ interface LumaCheckinProps {
   isConnected: boolean;
   paperWidth: PaperWidth;
   showTimestamp: boolean;
+  defaultQrContent: string;
   onPaperWidthChange: (value: PaperWidth) => void;
   onShowTimestampChange: (value: boolean) => void;
   printBuffer: (buffer: Uint8Array) => Promise<void>;
   onStatus: (message: string | null) => void;
-  onPreviewGuestChange: (guest: LumaGuestSummary | null) => void;
+  onPreviewReceiptChange: (data: LumaReceiptData | null) => void;
   encoderOptions: ReceiptEncoderOptions;
 }
 
@@ -109,7 +117,8 @@ export function LumaCheckin({
   onShowTimestampChange,
   printBuffer,
   onStatus,
-  onPreviewGuestChange,
+  onPreviewReceiptChange,
+  defaultQrContent,
   encoderOptions,
 }: LumaCheckinProps) {
   const { t, locale } = useLocale();
@@ -134,6 +143,9 @@ export function LumaCheckin({
   const [serverConfigured, setServerConfigured] = useState(false);
   const [pendingScan, setPendingScan] = useState<PendingScan | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [printSettings, setPrintSettings] = useState<LumaPrintSettings>(() =>
+    loadLumaPrintSettings(defaultQrContent),
+  );
 
   const selectedEvent = useMemo(
     () => events.find((event) => event.id === selectedEventId) ?? null,
@@ -242,48 +254,51 @@ export function LumaCheckin({
     };
   }, []);
 
-  async function buildAndPrintGuest(guest: LumaGuestSummary) {
-    const buffer = await buildLumaReceiptBuffer(
-      {
-        eventName: guest.eventName,
-        guestName: guest.name,
-        ticketName: guest.ticketName,
-        checkinUrl: guest.checkinUrl,
-        paperWidth,
-        showTimestamp,
-      },
-      encoderOptions,
-    );
+  useEffect(() => {
+    setPrintSettings((current) => ({
+      ...current,
+      customQrContent: current.customQrContent || defaultQrContent,
+      showTimestamp,
+    }));
+  }, [defaultQrContent, showTimestamp]);
 
-    await printBuffer(buffer);
+  useEffect(() => {
+    saveLumaPrintSettings(printSettings);
+  }, [printSettings]);
+
+  useEffect(() => {
+    if (pendingScan) {
+      onPreviewReceiptChange(buildReceiptData(pendingScan.guest));
+    }
+  }, [pendingScan, printSettings, paperWidth, defaultQrContent, onPreviewReceiptChange]);
+
+  function buildReceiptData(guest: LumaGuestSummary): LumaReceiptData {
+    return {
+      eventName: guest.eventName,
+      guestName: guest.name,
+      ticketName: guest.ticketName,
+      qrContent: resolveLumaQrContent(printSettings, guest.checkinUrl, defaultQrContent),
+      actionLabel: printSettings.actionLabel,
+      paperWidth,
+      showLogo: printSettings.showLogo,
+      showQr: printSettings.showQr,
+      showActionLabel: printSettings.showActionLabel,
+      showTicketName: printSettings.showTicketName,
+      showTimestamp: printSettings.showTimestamp,
+    };
   }
 
-  async function checkInOnLuma(guest: LumaGuestSummary): Promise<boolean> {
-    if (guest.checkedIn) {
-      return true;
-    }
+  function updatePrintSettings<K extends keyof LumaPrintSettings>(
+    key: K,
+    value: LumaPrintSettings[K],
+  ) {
+    setPrintSettings((current) => ({ ...current, [key]: value }));
+  }
 
-    const response = await lumaApiFetch("/api/luma/checkin", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        eventId: guest.eventId,
-        guestId: guest.guestId,
-        scanKey: guest.scanKey,
-      }),
-    });
-
-    const payload = (await response.json()) as { ok?: boolean; error?: string };
-    if (!response.ok) {
-      if (response.status === 501) {
-        throw new Error(payload.error ?? t.luma.checkInApiUnavailable);
-      }
-      throw new Error(payload.error ?? t.luma.checkinError);
-    }
-
-    return true;
+  async function buildAndPrintGuest(guest: LumaGuestSummary) {
+    const receiptData = buildReceiptData(guest);
+    const buffer = await buildLumaReceiptBuffer(receiptData, encoderOptions);
+    await printBuffer(buffer);
   }
 
   function appendLogEntry(entry: LumaCheckinEntry) {
@@ -352,7 +367,7 @@ export function LumaCheckin({
 
       const guest = payload.guest;
       playScanBeep();
-      onPreviewGuestChange(guest);
+      onPreviewReceiptChange(buildReceiptData(guest));
       setPendingScan({
         guest,
         entryId: `${dedupeKey}:${now}`,
@@ -369,7 +384,7 @@ export function LumaCheckin({
 
   function discardPendingScan() {
     setPendingScan(null);
-    onPreviewGuestChange(null);
+    onPreviewReceiptChange(null);
     onStatus(null);
   }
 
@@ -388,19 +403,11 @@ export function LumaCheckin({
     onStatus(null);
 
     let printed = false;
-    let checkedIn = guest.checkedIn;
     let entryError: string | null = null;
 
     try {
       await buildAndPrintGuest(guest);
       printed = true;
-
-      try {
-        checkedIn = await checkInOnLuma(guest);
-      } catch (checkinError) {
-        entryError =
-          checkinError instanceof Error ? checkinError.message : t.luma.checkinError;
-      }
 
       appendLogEntry({
         id: entryId,
@@ -409,22 +416,14 @@ export function LumaCheckin({
         ticketName: guest.ticketName,
         scannedAt: new Date().toISOString(),
         printed,
-        checkedIn,
         error: entryError,
-        checkinUrl: guest.checkinUrl,
+        qrContent: buildReceiptData(guest).qrContent,
         eventName: guest.eventName,
       });
 
       setPendingScan(null);
-      onPreviewGuestChange(null);
-
-      onStatus(
-        entryError
-          ? t.luma.printedCheckinFailed
-          : checkedIn
-            ? t.luma.scannedSuccess
-            : t.luma.scannedPrinted,
-      );
+      onPreviewReceiptChange(null);
+      onStatus(t.luma.scannedPrinted);
     } catch (printError) {
       onStatus(printError instanceof Error ? printError.message : t.luma.printError);
     } finally {
@@ -511,10 +510,10 @@ export function LumaCheckin({
         name: entry.name,
         email: "",
         ticketName: entry.ticketName,
-        checkedIn: entry.checkedIn,
+        checkedIn: false,
         eventId: selectedEventId,
         eventName: entry.eventName,
-        checkinUrl: entry.checkinUrl,
+        checkinUrl: entry.qrContent,
         approvalStatus: "approved",
       });
       onStatus(t.luma.reprinted);
@@ -542,7 +541,7 @@ export function LumaCheckin({
   function handleCalendarDisconnected() {
     stopScanning();
     setPendingScan(null);
-    onPreviewGuestChange(null);
+    onPreviewReceiptChange(null);
     setAuthRefreshKey((current) => current + 1);
   }
 
@@ -632,6 +631,91 @@ export function LumaCheckin({
               {t.fields.includeTimestamp}
             </span>
           </label>
+        </div>
+
+        <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <p className="mb-3 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            {t.luma.badgeSettingsTitle}
+          </p>
+          <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">{t.luma.badgeSettingsHint}</p>
+
+          <div className="mb-4 grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <input
+                type="radio"
+                name="luma-qr-source"
+                checked={printSettings.qrSource === "custom"}
+                onChange={() => updatePrintSettings("qrSource", "custom")}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.luma.qrSourceCustom}</span>
+            </label>
+            <label className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+              <input
+                type="radio"
+                name="luma-qr-source"
+                checked={printSettings.qrSource === "guest"}
+                onChange={() => updatePrintSettings("qrSource", "guest")}
+                className="h-4 w-4"
+              />
+              <span className="text-sm text-zinc-700 dark:text-zinc-300">{t.luma.qrSourceGuest}</span>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {t.luma.badgeQrLabel}
+            </span>
+            <input
+              type="text"
+              value={printSettings.customQrContent}
+              disabled={printSettings.qrSource === "guest" || !printSettings.showQr}
+              onChange={(event) => updatePrintSettings("customQrContent", event.target.value)}
+              placeholder={defaultQrContent || t.placeholders.qrContent}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
+            />
+          </label>
+
+          <label className="mt-4 block">
+            <span className="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              {t.fields.actionLabel}
+            </span>
+            <input
+              type="text"
+              value={printSettings.actionLabel}
+              disabled={!printSettings.showActionLabel}
+              onChange={(event) => updatePrintSettings("actionLabel", event.target.value)}
+              className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50"
+            />
+          </label>
+
+          <p className="mb-2 mt-4 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            {t.fields.ticketSections}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ["showLogo", t.fields.includeLogo],
+                ["showQr", t.fields.includeQr],
+                ["showActionLabel", t.fields.includeActionLabel],
+                ["showTicketName", t.luma.includeTicketName],
+                ["showTimestamp", t.fields.includeTimestamp],
+              ] as const
+            ).map(([key, label]) => (
+              <label
+                key={key}
+                className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={printSettings[key]}
+                  onChange={(event) => updatePrintSettings(key, event.target.checked)}
+                  className="h-4 w-4 rounded border-zinc-300"
+                />
+                <span className="text-sm text-zinc-700 dark:text-zinc-300">{label}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -864,8 +948,6 @@ export function LumaCheckin({
                       : entry.error
                         ? t.luma.statusPrintFailed
                         : t.luma.statusAwaitingPrint}
-                    {" · "}
-                    {entry.checkedIn ? t.luma.statusCheckedIn : t.luma.statusCheckinPending}
                     {entry.error ? ` · ${entry.error}` : ""}
                   </p>
                 </div>

@@ -1,15 +1,15 @@
 import ReceiptPrinterEncoder from "@point-of-sale/receipt-printer-encoder";
 
 import { getLogoPrintSize, loadLogoCanvas } from "./logo-image";
-import type { LumaReceiptData } from "./luma/types";
-import { getQrPrintSize, loadQrCanvas } from "./qr-image";
 import type { ReceiptEncoderOptions } from "./receipt";
+import { getQrPrintSize, loadQrCanvas } from "./qr-image";
+import type { CreditsTicketData } from "./types";
 import { sanitizeForPrinter } from "./text-encoding";
 import { formatTicketTimestamp } from "./timestamp";
 
 const DEFAULT_CODEPAGE_MAPPING = "pos-5890";
 
-function columnsForWidth(paperWidth: LumaReceiptData["paperWidth"]): number {
+function columnsForWidth(paperWidth: CreditsTicketData["paperWidth"]): number {
   return paperWidth === 58 ? 32 : 48;
 }
 
@@ -23,7 +23,7 @@ function createEncoder(encoderOptions?: ReceiptEncoderOptions, width?: number) {
 
 async function appendLogo(
   encoder: ReceiptPrinterEncoder,
-  paperWidth: LumaReceiptData["paperWidth"],
+  paperWidth: CreditsTicketData["paperWidth"],
 ): Promise<void> {
   if (typeof window === "undefined") {
     return;
@@ -44,7 +44,7 @@ async function appendLogo(
 async function appendQr(
   encoder: ReceiptPrinterEncoder,
   content: string,
-  paperWidth: LumaReceiptData["paperWidth"],
+  paperWidth: CreditsTicketData["paperWidth"],
 ): Promise<void> {
   if (typeof window === "undefined") {
     return;
@@ -62,18 +62,23 @@ async function appendQr(
   }
 }
 
-export async function buildLumaReceiptBuffer(
-  data: LumaReceiptData,
+export async function buildCreditsReceiptBuffer(
+  data: CreditsTicketData,
+  entryIndex: number,
   encoderOptions?: ReceiptEncoderOptions,
 ): Promise<Uint8Array> {
+  const entry = data.entries[entryIndex];
+  if (!entry) {
+    throw new Error("No credit entry available to print.");
+  }
+
   const width = columnsForWidth(data.paperWidth);
   const timestamp = formatTicketTimestamp();
   const encoder = createEncoder(encoderOptions, width);
 
-  const eventName = sanitizeForPrinter(data.eventName.trim());
-  const guestName = sanitizeForPrinter(data.guestName.trim());
-  const ticketName = sanitizeForPrinter(data.ticketName?.trim() ?? "");
-  const actionLabel = sanitizeForPrinter(data.actionLabel.trim() || "Check-in");
+  const title = sanitizeForPrinter(data.title.trim() || "Cursor Credits");
+  const subtitle = sanitizeForPrinter(data.subtitle.trim());
+  const label = sanitizeForPrinter(entry.label.trim());
 
   encoder.initialize().align("center");
 
@@ -81,23 +86,19 @@ export async function buildLumaReceiptBuffer(
     await appendLogo(encoder, data.paperWidth);
   }
 
-  encoder.bold(true).line(eventName).bold(false);
+  encoder.bold(true).line(title).bold(false);
 
-  if (data.showQr && data.qrContent.trim()) {
+  if (data.showSubtitle && subtitle) {
+    encoder.line(subtitle);
+  }
+
+  if (data.showQr) {
     encoder.newline();
-    await appendQr(encoder, data.qrContent, data.paperWidth);
+    await appendQr(encoder, entry.claimUrl, data.paperWidth);
   }
 
-  encoder.align("center");
-
-  if (data.showActionLabel) {
-    encoder.line(actionLabel);
-  }
-
-  encoder.line(guestName);
-
-  if (data.showTicketName && ticketName) {
-    encoder.line(ticketName);
+  if (data.showLabel && label) {
+    encoder.align("center").line(label);
   }
 
   if (data.showTimestamp) {

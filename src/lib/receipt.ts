@@ -83,20 +83,33 @@ export async function buildReceiptBuffer(
   const wifiPassword = sanitizeForPrinter(data.wifiPassword);
 
   encoder.initialize().align("center");
-  await appendLogo(encoder, data.paperWidth);
+
+  if (data.showLogo) {
+    await appendLogo(encoder, data.paperWidth);
+  }
 
   encoder.bold(true).line(businessName).bold(false);
 
-  encoder.newline();
-  await appendQr(encoder, data.qrContent, data.paperWidth);
+  if (data.showQr) {
+    encoder.newline();
+    await appendQr(encoder, data.qrContent, data.paperWidth);
+  }
 
-  encoder.align("center").line(eventType).line(actionLabel);
+  encoder.align("center");
 
-  if (nombre) {
+  if (data.showEventType) {
+    encoder.line(eventType);
+  }
+
+  if (data.showActionLabel) {
+    encoder.line(actionLabel);
+  }
+
+  if (data.showNombre && nombre) {
     encoder.line(nombre);
   }
 
-  if (extra) {
+  if (data.showExtra && extra) {
     encoder.line(extra);
   }
 

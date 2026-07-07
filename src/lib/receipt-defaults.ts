@@ -31,6 +31,12 @@ export function loadReceiptDefaults(): ReceiptData {
       paperWidth: isPaperWidth(parsed.paperWidth)
         ? parsed.paperWidth
         : defaultReceiptData.paperWidth,
+      showLogo: parsed.showLogo ?? defaultReceiptData.showLogo,
+      showQr: parsed.showQr ?? defaultReceiptData.showQr,
+      showEventType: parsed.showEventType ?? defaultReceiptData.showEventType,
+      showActionLabel: parsed.showActionLabel ?? defaultReceiptData.showActionLabel,
+      showNombre: parsed.showNombre ?? defaultReceiptData.showNombre,
+      showExtra: parsed.showExtra ?? defaultReceiptData.showExtra,
       showWifi: parsed.showWifi ?? defaultReceiptData.showWifi,
       showTimestamp: parsed.showTimestamp ?? defaultReceiptData.showTimestamp,
     };

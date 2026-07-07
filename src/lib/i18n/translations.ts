@@ -25,7 +25,7 @@ export type Translations = {
     repoBody: string;
     repoLinkLabel: string;
   };
-  ticketMode: { label: string; event: string; photo: string; luma: string };
+  ticketMode: { label: string; event: string; photo: string; luma: string; credits: string };
   app: {
     brand: string;
     title: string;
@@ -66,6 +66,13 @@ export type Translations = {
     includeWifi: string;
     includeTimestamp: string;
     name: string;
+    ticketSections: string;
+    includeLogo: string;
+    includeQr: string;
+    includeEventType: string;
+    includeActionLabel: string;
+    includeName: string;
+    includeExtra: string;
   };
   placeholders: {
     businessName: string;
@@ -194,6 +201,37 @@ export type Translations = {
     connectServerActive: string;
     connectUseOwnKey: string;
     connectHideForm: string;
+    badgeSettingsTitle: string;
+    badgeSettingsHint: string;
+    qrSourceCustom: string;
+    qrSourceGuest: string;
+    badgeQrLabel: string;
+    includeTicketName: string;
+  };
+  credits: {
+    title: string;
+    subtitle: string;
+    titleLabel: string;
+    subtitleLabel: string;
+    uploadCsv: string;
+    csvHint: string;
+    csvEmpty: string;
+    csvError: string;
+    csvLoaded: string;
+    queueEmpty: string;
+    progress: string;
+    remainingLabel: string;
+    includeSubtitle: string;
+    printNext: string;
+    resetQueue: string;
+    clearQueue: string;
+    printerRequired: string;
+    printedNext: string;
+    printedLast: string;
+    printError: string;
+    queueReset: string;
+    queueCleared: string;
+    previewEmpty: string;
   };
 };
 
@@ -250,6 +288,7 @@ export const translations: Record<Locale, Translations> = {
       event: "Ticket de evento",
       photo: "Ticket con foto",
       luma: "Check-in Luma",
+      credits: "Cursor Credits",
     },
     app: {
       brand: "Cursor POS",
@@ -296,6 +335,13 @@ export const translations: Record<Locale, Translations> = {
       includeWifi: "Incluir WiFi",
       includeTimestamp: "Incluir fecha y hora",
       name: "Nombre",
+      ticketSections: "Secciones del ticket",
+      includeLogo: "Logo",
+      includeQr: "Codigo QR",
+      includeEventType: "Tipo de evento",
+      includeActionLabel: "Accion",
+      includeName: "Nombre",
+      includeExtra: "Extra",
     },
     placeholders: {
       businessName: "Cursor Meetup - San Jose",
@@ -435,6 +481,39 @@ export const translations: Record<Locale, Translations> = {
         "Ahora mismo ves los eventos del calendario configurado en este despliegue.",
       connectUseOwnKey: "Usar mi propia API key",
       connectHideForm: "Ocultar",
+      badgeSettingsTitle: "Gafete impreso",
+      badgeSettingsHint:
+        "Por defecto el QR usa el contenido del ticket de evento. Tambien puedes usar la URL de check-in del invitado escaneado.",
+      qrSourceCustom: "QR del ticket de evento",
+      qrSourceGuest: "URL de check-in del invitado",
+      badgeQrLabel: "Contenido del QR en el gafete",
+      includeTicketName: "Tipo de entrada",
+    },
+    credits: {
+      title: "Cursor Credits",
+      subtitle:
+        "Carga un CSV con links para reclamar creditos. Cada impresion usa el siguiente link como QR.",
+      titleLabel: "Titulo del ticket",
+      subtitleLabel: "Subtitulo (opcional)",
+      uploadCsv: "Cargar CSV",
+      csvHint: "Columnas sugeridas: url/link y name/label. Tambien acepta una columna con URLs.",
+      csvEmpty: "El CSV no tiene links validos.",
+      csvError: "No se pudo leer el CSV.",
+      csvLoaded: "{count} links cargados.",
+      queueEmpty: "Cola vacia. Carga un CSV para empezar.",
+      progress: "Siguiente: {current} de {total}",
+      remainingLabel: "Restantes",
+      includeSubtitle: "Subtitulo",
+      printNext: "Imprimir siguiente",
+      resetQueue: "Reiniciar cola",
+      clearQueue: "Vaciar cola",
+      printerRequired: "Conecta la impresora antes de imprimir.",
+      printedNext: "Ticket impreso. Listo para el siguiente.",
+      printedLast: "Ultimo ticket impreso. Cola completada.",
+      printError: "Error al imprimir.",
+      queueReset: "Cola reiniciada desde el inicio.",
+      queueCleared: "Cola vaciada.",
+      previewEmpty: "Carga un CSV para ver la vista previa.",
     },
   },
   en: {
@@ -489,6 +568,7 @@ export const translations: Record<Locale, Translations> = {
       event: "Event ticket",
       photo: "Photo ticket",
       luma: "Luma check-in",
+      credits: "Cursor Credits",
     },
     app: {
       brand: "Cursor POS",
@@ -534,6 +614,13 @@ export const translations: Record<Locale, Translations> = {
       includeWifi: "Include WiFi",
       includeTimestamp: "Include date and time",
       name: "Name",
+      ticketSections: "Ticket sections",
+      includeLogo: "Logo",
+      includeQr: "QR code",
+      includeEventType: "Event type",
+      includeActionLabel: "Action",
+      includeName: "Name",
+      includeExtra: "Extra",
     },
     placeholders: {
       businessName: "Cursor Meetup - San Jose",
@@ -672,6 +759,39 @@ export const translations: Record<Locale, Translations> = {
         "You are currently seeing events from this deployment's configured calendar.",
       connectUseOwnKey: "Use my own API key",
       connectHideForm: "Hide",
+      badgeSettingsTitle: "Printed badge",
+      badgeSettingsHint:
+        "By default the QR uses the event ticket content. You can also use the scanned guest's Luma check-in URL.",
+      qrSourceCustom: "Event ticket QR",
+      qrSourceGuest: "Guest check-in URL",
+      badgeQrLabel: "QR content on the badge",
+      includeTicketName: "Ticket type",
+    },
+    credits: {
+      title: "Cursor Credits",
+      subtitle:
+        "Upload a CSV with claim links. Each print uses the next link as the QR code.",
+      titleLabel: "Ticket title",
+      subtitleLabel: "Subtitle (optional)",
+      uploadCsv: "Upload CSV",
+      csvHint: "Suggested columns: url/link and name/label. A single URL column also works.",
+      csvEmpty: "The CSV has no valid links.",
+      csvError: "Could not read the CSV.",
+      csvLoaded: "{count} links loaded.",
+      queueEmpty: "Queue empty. Upload a CSV to get started.",
+      progress: "Next: {current} of {total}",
+      remainingLabel: "Remaining",
+      includeSubtitle: "Subtitle",
+      printNext: "Print next",
+      resetQueue: "Reset queue",
+      clearQueue: "Clear queue",
+      printerRequired: "Connect the printer before printing.",
+      printedNext: "Ticket printed. Ready for the next one.",
+      printedLast: "Last ticket printed. Queue complete.",
+      printError: "Print error.",
+      queueReset: "Queue reset to the beginning.",
+      queueCleared: "Queue cleared.",
+      previewEmpty: "Upload a CSV to see the preview.",
     },
   },
 };

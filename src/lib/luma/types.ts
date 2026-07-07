@@ -30,9 +30,8 @@ export interface LumaCheckinEntry {
   ticketName: string | null;
   scannedAt: string;
   printed: boolean;
-  checkedIn: boolean;
   error: string | null;
-  checkinUrl: string;
+  qrContent: string;
   eventName: string;
 }
 
@@ -40,8 +39,13 @@ export interface LumaReceiptData {
   eventName: string;
   guestName: string;
   ticketName: string | null;
-  checkinUrl: string;
+  qrContent: string;
+  actionLabel: string;
   paperWidth: import("@/lib/types").PaperWidth;
+  showLogo: boolean;
+  showQr: boolean;
+  showActionLabel: boolean;
+  showTicketName: boolean;
   showTimestamp: boolean;
 }
 

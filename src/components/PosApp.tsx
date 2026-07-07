@@ -3,6 +3,7 @@
 import {
   Cable,
   Camera,
+  Coins,
   Download,
   LoaderCircle,
   PlugZap,
@@ -12,10 +13,12 @@ import {
   Ticket,
   Unplug,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppTopBar } from "@/components/AppTopBar";
 import { CameraCapture } from "@/components/CameraCapture";
+import { CreditsReceiptPreview } from "@/components/CreditsReceiptPreview";
+import { CursorCredits } from "@/components/CursorCredits";
 import { DocsFooterLink } from "@/components/DocsBackLink";
 import { LumaCheckin } from "@/components/LumaCheckin";
 import { LumaReceiptPreview } from "@/components/LumaReceiptPreview";
@@ -27,11 +30,13 @@ import { downloadReceiptBuffer } from "@/lib/browser-printer";
 import { buildPhotoReceiptBuffer } from "@/lib/photo-receipt";
 import { loadReceiptDefaults, saveReceiptDefaults } from "@/lib/receipt-defaults";
 import { buildReceiptBuffer } from "@/lib/receipt";
-import type { LumaGuestSummary } from "@/lib/luma/types";
+import type { LumaReceiptData } from "@/lib/luma/types";
 import {
   type PaperWidth,
+  defaultCreditsTicketData,
   defaultPhotoTicketData,
   defaultReceiptData,
+  type CreditsTicketData,
   type PhotoTicketData,
   type ReceiptData,
   type TicketMode,
@@ -44,7 +49,8 @@ export function PosApp() {
   const [mode, setMode] = useState<TicketMode>("event");
   const [receipt, setReceipt] = useState<ReceiptData>(defaultReceiptData);
   const [photoTicket, setPhotoTicket] = useState<PhotoTicketData>(defaultPhotoTicketData);
-  const [lumaPreviewGuest, setLumaPreviewGuest] = useState<LumaGuestSummary | null>(null);
+  const [lumaPreviewReceipt, setLumaPreviewReceipt] = useState<LumaReceiptData | null>(null);
+  const [creditsPreview, setCreditsPreview] = useState<CreditsTicketData>(defaultCreditsTicketData);
   const [status, setStatus] = useState<string | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -74,6 +80,34 @@ export function PosApp() {
       ] satisfies Array<{ key: FieldKey; label: string; placeholder: string }>,
     [t],
   );
+
+  const handleCreditsPreviewChange = useCallback((data: CreditsTicketData) => {
+    setCreditsPreview(data);
+  }, []);
+
+  const handleLumaPreviewChange = useCallback((data: LumaReceiptData | null) => {
+    setLumaPreviewReceipt(data);
+  }, []);
+
+  function isFieldDisabled(key: FieldKey): boolean {
+    switch (key) {
+      case "qrContent":
+        return !receipt.showQr;
+      case "eventType":
+        return !receipt.showEventType;
+      case "actionLabel":
+        return !receipt.showActionLabel;
+      case "nombre":
+        return !receipt.showNombre;
+      case "extra":
+        return !receipt.showExtra;
+      case "wifiSsid":
+      case "wifiPassword":
+        return !receipt.showWifi;
+      default:
+        return false;
+    }
+  }
 
   useEffect(() => {
     const saved = loadReceiptDefaults();
@@ -203,17 +237,25 @@ export function PosApp() {
     [device?.codepageMapping, device?.language],
   );
 
-  const lumaPreviewData = useMemo(
-    () => ({
-      eventName: lumaPreviewGuest?.eventName ?? receipt.businessName,
-      guestName: lumaPreviewGuest?.name ?? receipt.nombre,
-      ticketName: lumaPreviewGuest?.ticketName ?? null,
-      checkinUrl: lumaPreviewGuest?.checkinUrl ?? receipt.qrContent,
+  const lumaPreviewData = useMemo((): LumaReceiptData => {
+    if (lumaPreviewReceipt) {
+      return lumaPreviewReceipt;
+    }
+
+    return {
+      eventName: receipt.businessName,
+      guestName: receipt.nombre,
+      ticketName: null,
+      qrContent: receipt.qrContent,
+      actionLabel: receipt.actionLabel,
       paperWidth: receipt.paperWidth,
+      showLogo: receipt.showLogo,
+      showQr: receipt.showQr,
+      showActionLabel: receipt.showActionLabel,
+      showTicketName: true,
       showTimestamp: receipt.showTimestamp,
-    }),
-    [lumaPreviewGuest, receipt.businessName, receipt.nombre, receipt.paperWidth, receipt.qrContent, receipt.showTimestamp],
-  );
+    };
+  }, [lumaPreviewReceipt, receipt]);
 
   return (
     <div className="mx-auto w-full max-w-7xl px-6 py-10">
@@ -221,7 +263,7 @@ export function PosApp() {
 
       <div className="mb-8 rounded-3xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900 p-4 shadow-sm sm:p-5">
         <p className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">{t.ticketMode.label}</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <button
             type="button"
             onClick={() => setMode("event")}
@@ -257,6 +299,18 @@ export function PosApp() {
           >
             <QrCode className="h-5 w-5" />
             {t.ticketMode.luma}
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("credits")}
+            className={`inline-flex items-center justify-center gap-3 rounded-2xl border px-5 py-4 text-base font-semibold transition ${
+              mode === "credits"
+                ? "border-zinc-900 bg-zinc-900 text-white shadow-md"
+                : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-900"
+            }`}
+          >
+            <Coins className="h-5 w-5" />
+            {t.ticketMode.credits}
           </button>
         </div>
       </div>
@@ -369,11 +423,7 @@ export function PosApp() {
                   value={String(receipt[field.key])}
                   placeholder={field.placeholder}
                   onChange={(event) => updateField(field.key, event.target.value)}
-                  disabled={
-                    field.key === "wifiSsid" || field.key === "wifiPassword"
-                      ? !receipt.showWifi
-                      : false
-                  }
+                  disabled={isFieldDisabled(field.key)}
                   className="w-full rounded-xl border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-50 outline-none transition focus:border-zinc-400 focus:bg-white dark:focus:border-zinc-500 dark:focus:bg-zinc-900 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </label>
@@ -413,6 +463,37 @@ export function PosApp() {
                   />
                   <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">{t.fields.includeWifi}</span>
                 </label>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                {t.fields.ticketSections}
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {(
+                  [
+                    ["showLogo", t.fields.includeLogo],
+                    ["showQr", t.fields.includeQr],
+                    ["showEventType", t.fields.includeEventType],
+                    ["showActionLabel", t.fields.includeActionLabel],
+                    ["showNombre", t.fields.includeName],
+                    ["showExtra", t.fields.includeExtra],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-950"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={receipt[key]}
+                      onChange={(event) => updateField(key, event.target.checked)}
+                      className="h-4 w-4 rounded border-zinc-300"
+                    />
+                    <span className="text-sm text-zinc-700 dark:text-zinc-300">{label}</span>
+                  </label>
+                ))}
               </div>
             </div>
           </div>
@@ -478,21 +559,30 @@ export function PosApp() {
               }
             />
           </div>
-        ) : (
+        ) : mode === "luma" ? (
           <LumaCheckin
             isConnected={isConnected}
             paperWidth={receipt.paperWidth}
             showTimestamp={receipt.showTimestamp}
+            defaultQrContent={receipt.qrContent}
             onPaperWidthChange={(value) => updateField("paperWidth", value)}
             onShowTimestampChange={(value) => updateField("showTimestamp", value)}
             printBuffer={print}
             onStatus={setStatus}
-            onPreviewGuestChange={setLumaPreviewGuest}
+            onPreviewReceiptChange={handleLumaPreviewChange}
+            encoderOptions={encoderOptions}
+          />
+        ) : (
+          <CursorCredits
+            isConnected={isConnected}
+            printBuffer={print}
+            onStatus={setStatus}
+            onPreviewChange={handleCreditsPreviewChange}
             encoderOptions={encoderOptions}
           />
         )}
 
-        {mode !== "luma" ? (
+        {mode === "event" || mode === "photo" ? (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <button
               type="button"
@@ -542,8 +632,10 @@ export function PosApp() {
           <ReceiptPreview data={receipt} />
         ) : mode === "photo" ? (
           <PhotoReceiptPreview data={photoTicket} />
-        ) : (
+        ) : mode === "luma" ? (
           <LumaReceiptPreview data={lumaPreviewData} />
+        ) : (
+          <CreditsReceiptPreview data={creditsPreview} />
         )}
       </aside>
       </div>
